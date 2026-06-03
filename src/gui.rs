@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use tao::dpi::{LogicalPosition, LogicalSize};
+use tao::dpi::LogicalSize;
 use tao::event::{Event, StartCause, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
 
@@ -20,7 +20,7 @@ use tao::platform::unix::WindowExtUnix;
 
 use tao::window::WindowBuilder;
 use wry::http::Request;
-use wry::{Rect, WebViewBuilder};
+use wry::WebViewBuilder;
 
 #[cfg(target_os = "linux")]
 use wry::WebViewBuilderExtUnix;
@@ -66,7 +66,7 @@ const FRAY_PREFIX: &str = "@@fray:";                // @@fray:export|render|harn
 pub fn launch() -> std::io::Result<()> {
     #[cfg(target_os = "linux")]
     apply_default_linux_env_vars();
-    
+ 
     let event_loop = EventLoopBuilder::<Ev>::with_user_event().build();
     let window = WindowBuilder::new()
         .with_title("Peptide")
@@ -147,10 +147,6 @@ pub fn launch() -> std::io::Result<()> {
     let webview_builder = WebViewBuilder::new()
         .with_html(&ui_html)
         .with_initialization_script(&init)
-        .with_bounds(Rect {
-          position: LogicalPosition::new(0, 0).into(),
-          size: LogicalSize::new(940, 720).into(),
-        })
         .with_ipc_handler(move |req: Request<String>| {
             let body = req.body().to_string();
             let (w, cl, cn, px, ch) = (ipc_writer.clone(), ipc_cleanup.clone(), ipc_conn.clone(),
@@ -203,7 +199,7 @@ pub fn launch() -> std::io::Result<()> {
     let webview = {
         use gtk::traits::WidgetExt;
         // Note that for linux targets we need to initialize gtk before building the webview
-        let _ = gtk::init().map_err(|e| io(&e.to_string()))?;
+        gtk::init().map_err(|e| io(&e.to_string()))?;
         // Likewise for display we have to build using an instance of gtk::Box, here we use the default
         if let Some(vbox) = window.default_vbox() {
             vbox.show_all();
@@ -221,9 +217,6 @@ pub fn launch() -> std::io::Result<()> {
                 .map_err(|e| io(&e.to_string()))?
         }
     };
-
-
-
 
     event_loop.run(move |event, _t, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -565,7 +558,7 @@ fn add_publish_folder(json: &str, proxy: &EventLoopProxy<Ev>) {
 // * `key` - The environment variable key 
 // * `value` - The value to be set to the environment variable
 // * `unset_if_empty` - When true, the environment variable is unset if the value is empty
-fn set_default_env_var(key:&str, value:&str, unset_if_empty:bool) {
+fn set_default_env_var(key: &str, value: &str, unset_if_empty: bool) {
     let env_var = std::env::var_os(key);
     if env_var.is_none() {
         std::env::set_var(key, value);
@@ -578,7 +571,9 @@ fn set_default_env_var(key:&str, value:&str, unset_if_empty:bool) {
 
 // Setting default environment variables to fix rendering issues on linux
 fn apply_default_linux_env_vars() {
-    // Using x11 by default
+    // Using x11 by default, Note that if an empty string is passed to any of the given environment
+    // variables, the environment variable would be removed, ensuring that users can properly opt
+    // out of our defaults
     set_default_env_var("GDK_BACKEND", "x11", true);
     // Hopefully should deal with rendering issues on nvidia gpus
     set_default_env_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1", true);
